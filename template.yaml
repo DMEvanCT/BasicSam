@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  InsuranceProject
+
+  Process insurance applications
+
+Globals:
+  Function:
+    Timeout: 5
+    MemorySize: 128
+    Runtime: python3.10
+    Architectures:
+      - arm64
+    LoggingConfig:
+      LogFormat: JSON
+
+
+Resources:
+# Create a dynamo db table with Partition key of id 
+  InsuranceTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: InsuranceTable
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  ProcessIncomingInsurance:
+    Type: AWS::Serverless::Function    
+    Properties:
+      Handler: app.lambda_handler
+      CodeUri: process_insure
+      Description: Process incoming insurance applications Add to dynamo DB
+      Tracing: Active
+      Events:
+        AddInsurancePath:
+          Type: Api          
+          Properties:
+            Path: /api/v1/createapplication
+            Method: POST
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          TABLE_NAME: !Ref InsuranceTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InsuranceTable
+      Tags:
+        Application: ProcessInsurance
+# Create a dynamo db table with the Primary Key as 'id'
+
+
+Outputs:
+  HelloWorldApi:
+    Description: API Gateway endpoint URL for Prod environment for Hello World Function
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/api/v1/createapplication"
+
+  ProcessArn:
+    Description: Insurance Process Lambda Function ARN
+    Value: !GetAtt ProcessIncomingInsurance.Arn
+
